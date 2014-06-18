@@ -1,4 +1,4 @@
-WidthMap
-========
+MitoGraph
+=========
 
-Calculate width of mitochondrial tubules and map the width over the respective skeleton and surface.
+Software for Quantifying Mitochondrial Content in Live Cells
