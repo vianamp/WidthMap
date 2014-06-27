@@ -37,7 +37,7 @@
 #include <vtkImageRFFT.h>
 #include <vtkImageCast.h>
 
-#define DEBUG
+//#define DEBUG
 
 // Mapping tubules width over the mitochondrial skeleton
 void MapOverSkeleton(vtkPolyData *Skeleton, vtkPolyData *Surface, const char FileName[], double *scale);
@@ -65,6 +65,7 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
     #endif
 
     vtkSmartPointer<vtkPolyDataWriter> Writer = vtkSmartPointer<vtkPolyDataWriter>::New();
+    Writer -> SetFileType(VTK_BINARY);
     Writer -> SetInputData(PolyData);
     Writer -> SetFileName(FileName);
     Writer -> Write();
@@ -74,7 +75,7 @@ void SavePolyData(vtkPolyData *PolyData, const char FileName[]) {
    -> SURFACE
 =================================================================*/
 
-void MapOverSkeleton(vtkPolyData *Skeleton, vtkPolyData *Surface, const char FileName[], double *scale) {
+void MapOverSkeleton(vtkPolyData *Skeleton, vtkPolyData *Surface, const char FileName[], double *scale, double *avg_width, double *std_width) {
 
     #ifdef DEBUG
         printf("Mapping over the skeleton...\n");
@@ -95,9 +96,10 @@ void MapOverSkeleton(vtkPolyData *Skeleton, vtkPolyData *Surface, const char Fil
 
     int k, n = 3;
     vtkIdType id, idk;
-    double r[3], rk[3], d;
+    double r[3], rk[3], d, w, w2;
     vtkSmartPointer<vtkIdList> List = vtkSmartPointer<vtkIdList>::New();
     
+    w = w2 = 0.0;
     for (id = 0; id < N; id++) {
         d = 0;
         Skeleton -> GetPoint(id,r);
@@ -108,11 +110,15 @@ void MapOverSkeleton(vtkPolyData *Skeleton, vtkPolyData *Surface, const char Fil
             d += sqrt( pow(scale[0]*r[0]-scale[0]*rk[0],2) + pow(scale[0]*r[1]-scale[0]*rk[1],2) + pow(scale[1]*r[2]-scale[1]*rk[2],2) );
         }
         d /= (double)n;
-        Width -> SetTuple1(id,d);
+        w += 2*d;
+        w2 += pow(2*d,2);
+        Width -> SetTuple1(id,2*d);
+
     }
     Width -> Modified();
     Skeleton -> GetPointData() -> SetScalars(Width);
-
+    *avg_width = w / N;
+    *std_width = sqrt(w2-pow(w/N,2)) / N;
 }
 
 /* ================================================================
@@ -164,7 +170,7 @@ void MapOverSurface(vtkPolyData *Skeleton, vtkPolyData *Surface, const char File
    TUBULES WIDTH
 =================================================================*/
 
-int CalculateTubulesWidth(const char FileName[], double *scale) {
+double CalculateTubulesWidth(const char FileName[], double *scale, double *avg_width, double *std_width) {
 
     #ifdef DEBUG
         printf("Loading PolyData 1...\n");
@@ -202,14 +208,14 @@ int CalculateTubulesWidth(const char FileName[], double *scale) {
     vtkPolyData *Skeleton = SkeletonReader -> GetOutput();
     vtkPolyData *Surface  =  SurfaceReader -> GetOutput();
 
-    MapOverSurface(Skeleton,Surface,FileName,scale);
-    MapOverSkeleton(Skeleton,Surface,FileName,scale);
+    //MapOverSurface(Skeleton,Surface,FileName,scale);
+    MapOverSkeleton(Skeleton,Surface,FileName,scale,avg_width,std_width);
 
     sprintf(_fullpath,"%s_skeleton-color.vtk",FileName);
     SavePolyData(Skeleton,_fullpath);
 
-    sprintf(_fullpath,"%s_surface-color.vtk",FileName);
-    SavePolyData(Surface,_fullpath);
+    //sprintf(_fullpath,"%s_surface-color.vtk",FileName);
+    //SavePolyData(Surface,_fullpath);
 
     return 0;
 }
@@ -246,11 +252,13 @@ int main(int argc, char *argv[]) {
 
     char _tifffilename[256];
     char _tifflistpath[128];
+    double avg_width, std_width;
     sprintf(_tifflistpath,"%smitograph.files",_impath);
     FILE *f = fopen(_tifflistpath,"r");
     while (fgets(_tifffilename,256, f) != NULL) {
         _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
-        CalculateTubulesWidth(_tifffilename,scale);
+        CalculateTubulesWidth(_tifffilename,scale,&avg_width,&std_width);
+        printf("%s\t%1.4f\t%1.4f\n",_tifffilename,avg_width,std_width);
     }
     fclose(f);
 
