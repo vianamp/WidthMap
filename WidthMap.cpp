@@ -250,10 +250,15 @@ int main(int argc, char *argv[]) {
         printf("xy = %1.3f, z = %1.3f\n",scale[0],scale[1]);
     #endif
 
+    // Generating list of files to run
+    char _cmd[256];
+    sprintf(_cmd,"ls %s*_skeleton.vtk | sed -e 's/_skeleton.vtk//' > %swidthmap.files",_impath,_impath);
+    system(_cmd);
+
     char _tifffilename[256];
     char _tifflistpath[128];
     double avg_width, std_width;
-    sprintf(_tifflistpath,"%smitograph.files",_impath);
+    sprintf(_tifflistpath,"%swidthmap.files",_impath);
     FILE *f = fopen(_tifflistpath,"r");
     while (fgets(_tifffilename,256, f) != NULL) {
         _tifffilename[strcspn(_tifffilename, "\n" )] = '\0';
